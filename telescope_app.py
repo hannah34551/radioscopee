@@ -1,97 +1,96 @@
-
 import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
+import graphviz as graphviz
 
-st.set_page_config(page_title="Radio Telescope Simulator", layout="wide")
-st.title("🔭 Radio Telescope Receiver System")
+st.set_page_config(page_title="ORT Receiver Flow", layout="wide")
+st.title("🔧 ORT Receiver System – Interactive Flow Diagram")
 
-# Sidebar stage selector
-stage = st.sidebar.radio("Choose a system stage:", [
+st.markdown("Select a component from the flowchart below to view its function.")
+
+# Define flowchart with Graphviz
+diagram = graphviz.Digraph(format='png')
+
+# Antenna Subsystem
+diagram.node("Antenna", "Antenna\n(326.5 MHz)")
+diagram.node("RF Amp", "RF Amp\nGain: 30 dB\nBW: 15 MHz")
+diagram.node("Image Filter", "Image Rejection Filter")
+diagram.node("Mixer", "Mixer")
+diagram.node("IF Amp 27", "IF Amp\nGain: 27 dB\nBW: 15 MHz")
+
+# LO system
+diagram.node("LO Branch", "LO Branching\n296.5 MHz")
+diagram.node("LO Shift", "LO Phase Shifter")
+
+# Receiver subsystem
+diagram.node("Cable", "300m Coax Cable")
+diagram.node("PA1", "IF Amp\nGain: 30 dB")
+diagram.node("Delay", "Delay Line")
+diagram.node("PA2", "IF Amp\nGain: 30 dB")
+diagram.node("Beamform", "Beam Forming Network")
+diagram.node("PA3", "IF Amp\nGain: 70 dB\nBW: 4 MHz")
+diagram.node("Correlator", "Correlator")
+diagram.node("Power", "Total Power")
+diagram.node("ADC", "To ADC")
+
+# Flow connections
+diagram.edges([("Antenna", "RF Amp"),
+                ("RF Amp", "Image Filter"),
+                ("Image Filter", "Mixer"),
+                ("Mixer", "IF Amp 27"),
+                ("IF Amp 27", "Cable"),
+                ("Cable", "PA1"),
+                ("PA1", "Delay"),
+                ("Delay", "PA2"),
+                ("PA2", "Beamform"),
+                ("Beamform", "PA3"),
+                ("PA3", "Correlator"),
+                ("Correlator", "Power"),
+                ("Power", "ADC")])
+
+# LO branches
+diagram.edge("LO Branch", "LO Shift")
+diagram.edge("LO Shift", "Mixer")
+
+# Display the diagram
+st.graphviz_chart(diagram)
+
+# Component selector
+component = st.selectbox("🔍 Select a component to inspect:", [
     "Antenna",
-    "Receiver",
-    "ADC",
-    "FFT",
-    "Spectrum Output"
+    "RF Amp",
+    "Image Rejection Filter",
+    "Mixer",
+    "IF Amp (27 dB)",
+    "LO Branching",
+    "LO Phase Shifter",
+    "300m Coax Cable",
+    "IF Amp (30 dB)",
+    "Delay Line",
+    "Beam Forming Network",
+    "IF Amp (70 dB)",
+    "Correlator",
+    "Total Power",
+    "To ADC"
 ])
 
-# Global simulation parameters
-frequency = st.sidebar.slider("Signal Frequency (MHz)", 1400.0, 1440.0, 1420.0, 0.5)
-noise_level = st.sidebar.slider("Noise Level", 0.0, 2.0, 0.5, 0.1)
-sample_rate = st.sidebar.slider("Sample Rate (Hz)", 1000, 50000, 10000, 1000)
-duration_ms = st.sidebar.slider("Duration (ms)", 1, 100, 10, 1)
+# Info dictionary
+info = {
+    "Antenna": "Receives cosmic radio waves at 326.5 MHz, part of the antenna subsystem.",
+    "RF Amp": "First amplification stage at RF, 30 dB gain with 15 MHz bandwidth.",
+    "Image Rejection Filter": "Suppresses image frequencies before downconversion.",
+    "Mixer": "Mixes incoming RF with LO to produce IF signal.",
+    "IF Amp (27 dB)": "Intermediate frequency amplifier (27 dB gain).",
+    "LO Branching": "Distributes 296.5 MHz LO signal to mixers.",
+    "LO Phase Shifter": "Applies necessary phase shift before mixing.",
+    "300m Coax Cable": "Long-distance transmission of IF signal to receiver room.",
+    "IF Amp (30 dB)": "Post-cable IF amplification stage.",
+    "Delay Line": "Applies calibrated delay for phase alignment across antennas.",
+    "Beam Forming Network": "Combines multiple inputs to create directional sensitivity.",
+    "IF Amp (70 dB)": "Final gain stage before backend, narrow 4 MHz bandwidth.",
+    "Correlator": "Computes correlations between signals for interferometry.",
+    "Total Power": "Monitors total power for calibration and signal quality.",
+    "To ADC": "Signals passed to digitizers for digital backend processing."
+}
 
-# Derived values
-frequency_hz = frequency * 1e6
-duration = duration_ms / 1000.0
-t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
-signal = np.sin(2 * np.pi * frequency_hz * t)
-noise = np.random.normal(0, noise_level, len(t))
-
-if stage == "Antenna":
-    st.header("Stage 1: Antenna")
-    st.markdown("The antenna collects incoming cosmic radio waves and produces a raw analog signal.")
-    fig, ax = plt.subplots()
-    ax.plot(t * 1e3, signal)
-    ax.set_xlabel("Time (ms)")
-    ax.set_ylabel("Amplitude")
-    ax.set_title("Raw Signal from Antenna")
-    st.pyplot(fig)
-
-elif stage == "Receiver":
-    st.header("Stage 2: Receiver")
-    st.markdown("The receiver amplifies the signal and introduces some analog filtering. For simplicity, we apply gain here.")
-    gain = 5
-    amplified_signal = gain * signal
-    fig, ax = plt.subplots()
-    ax.plot(t * 1e3, amplified_signal)
-    ax.set_xlabel("Time (ms)")
-    ax.set_ylabel("Amplitude")
-    ax.set_title("Amplified Signal")
-    st.pyplot(fig)
-
-elif stage == "ADC":
-    st.header("Stage 3: Analog-to-Digital Converter (ADC)")
-    st.markdown("The ADC digitizes the signal and includes noise. This is the actual signal processed by the backend.")
-    received_signal = signal + noise
-    fig, ax = plt.subplots()
-    ax.plot(t * 1e3, received_signal)
-    ax.set_xlabel("Time (ms)")
-    ax.set_ylabel("Amplitude")
-    ax.set_title("Digitized Signal with Noise")
-    st.pyplot(fig)
-
-elif stage == "FFT":
-    st.header("Stage 4: Fast Fourier Transform (FFT)")
-    st.markdown("FFT converts the signal from the time domain to the frequency domain.")
-    received_signal = signal + noise
-    fft_result = np.fft.fft(received_signal)
-    fft_freqs = np.fft.fftfreq(len(t), 1/sample_rate)
-    spectrum = np.abs(fft_result)
-    pos_mask = fft_freqs >= 0
-    fft_freqs = fft_freqs[pos_mask] / 1e6  # Convert to MHz
-    spectrum = spectrum[pos_mask]
-    fig, ax = plt.subplots()
-    ax.plot(fft_freqs, spectrum)
-    ax.set_xlabel("Frequency (MHz)")
-    ax.set_ylabel("Magnitude")
-    ax.set_title("FFT Result")
-    st.pyplot(fig)
-
-elif stage == "Spectrum Output":
-    st.header("Stage 5: Spectrum Output")
-    st.markdown("This is the final spectrum, which scientists use to identify radio sources.")
-    received_signal = signal + noise
-    fft_result = np.fft.fft(received_signal)
-    fft_freqs = np.fft.fftfreq(len(t), 1/sample_rate)
-    spectrum = np.abs(fft_result)
-    pos_mask = fft_freqs >= 0
-    fft_freqs = fft_freqs[pos_mask] / 1e6
-    spectrum = spectrum[pos_mask]
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(fft_freqs, spectrum)
-    ax.set_xlabel("Frequency (MHz)")
-    ax.set_ylabel("Intensity")
-    ax.set_title("Final Radio Spectrum")
-    st.pyplot(fig)
-    st.success("Spectrum captured successfully.")
+# Display info
+st.markdown(f"### 🧠 {component}")
+st.write(info[component])
